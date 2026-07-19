@@ -84,31 +84,55 @@ class _HomeScreenState extends State<HomeScreen> {
     final weather = provider.weather;
     return DefaultTabController(
       length: 2,
-      child: Column(
+      child: Stack(
         children: [
-          ClipRRect(
-            child: Container(
-              padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 8),
-              decoration: BoxDecoration(
-                color: weather.isLightBackground ? Colors.black.withOpacity(0.05) : Colors.black.withOpacity(0.2),
-                border: Border(bottom: BorderSide(color: weather.primaryTextColor.withOpacity(0.06))),
-              ),
-              child: TabBar(
-                tabs: const [
-                  Tab(text: 'Portfolio'),
-                  Tab(text: 'Life Snapshots'),
-                ],
-                labelColor: weather.primaryTextColor,
-                unselectedLabelColor: weather.tertiaryTextColor,
-                indicatorColor: weather.accentColor,
-                dividerColor: Colors.transparent,
-                labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-              ),
+          Padding(
+            padding: const EdgeInsets.only(top: 0),
+            child: TabBarView(
+              children: [
+                const PortfolioContent(),
+                const PostFeed(),
+              ],
             ),
           ),
-          const Expanded(
-            child: TabBarView(
-              children: [PortfolioContent(), PostFeed()],
+          // Floating Glass TabBar at the bottom for better reachability/impact
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 20 + MediaQuery.of(context).padding.bottom,
+            child: Container(
+              height: 64,
+              decoration: BoxDecoration(
+                color: weather.glassColor.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(color: weather.glassBorderColor),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(32),
+                child: TabBar(
+                  tabs: const [
+                    Tab(icon: Icon(Icons.person_outline_rounded, size: 20), text: 'Me'),
+                    Tab(icon: Icon(Icons.auto_awesome_mosaic_rounded, size: 20), text: 'Snapshots'),
+                  ],
+                  labelColor: weather.primaryTextColor,
+                  unselectedLabelColor: weather.tertiaryTextColor,
+                  indicator: BoxDecoration(
+                    borderRadius: BorderRadius.circular(32),
+                    color: weather.accentColor.withOpacity(0.15),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+                ),
+              ),
             ),
           ),
         ],

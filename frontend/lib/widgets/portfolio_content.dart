@@ -102,10 +102,11 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
       return LayoutBuilder(builder: (context, constraints) {
         final isMobile = constraints.maxWidth < 600;
         final horizontalPadding = isMobile ? 24.0 : 40.0;
+        final bottomPadding = isMobile ? 120.0 : 60.0; // Added extra padding for floating TabBar
 
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(horizontalPadding, 60, horizontalPadding, 60),
+          padding: EdgeInsets.fromLTRB(horizontalPadding, 60, horizontalPadding, bottomPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -352,6 +353,7 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
                   para,
+                  textAlign: TextAlign.justify,
                   style: TextStyle(color: weather.secondaryTextColor, fontSize: 15, height: 1.75),
                 ),
               ),
@@ -466,6 +468,7 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
                                 const SizedBox(height: 8),
                                 Text(
                                   portfolio.experience[i]['description']?.toString() ?? '',
+                                  textAlign: TextAlign.justify,
                                   style: TextStyle(color: weather.tertiaryTextColor, fontSize: 13, height: 1.6),
                                 ),
                               ],
@@ -672,6 +675,7 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
                               Expanded(
                                 child: Text(
                                   p['description']?.toString() ?? '',
+                                  textAlign: TextAlign.justify,
                                   style: TextStyle(color: weather.tertiaryTextColor, fontSize: 12, height: 1.5),
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
@@ -1614,8 +1618,11 @@ class _ProfileWeatherPainter extends CustomPainter {
 
     switch (condition) {
       case WeatherCondition.sunny:
-      case WeatherCondition.sunnyClouds:
         _drawSunnyEffect(canvas, center, radius);
+        break;
+      case WeatherCondition.clouds:
+      case WeatherCondition.sunnyClouds:
+        _drawCloudEffect(canvas, center, radius);
         break;
       case WeatherCondition.rain:
       case WeatherCondition.heavyRain:
@@ -1719,6 +1726,35 @@ class _ProfileWeatherPainter extends CustomPainter {
       final offset = Offset(center.dx + cos(angle) * (radius + 8), center.dy + sin(angle) * (radius + 8));
       canvas.drawCircle(offset, 2, paint..style = PaintingStyle.fill);
     }
+  }
+
+  void _drawCloudEffect(Canvas canvas, Offset center, double radius) {
+    final cloudColor = condition == WeatherCondition.sunnyClouds ? Colors.white : const Color(0xFF90A4AE); // Darkened for visibility
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    for (int i = 0; i < 5; i++) {
+      final angle = (progress * pi * 2) + (i * pi * 2 / 5);
+      final offset = Offset(
+        center.dx + cos(angle) * (radius * 1.1),
+        center.dy + sin(angle) * (radius * 1.1),
+      );
+      final cloudSize = radius * (0.4 + 0.2 * sin(progress * pi * 2 + i));
+      
+      canvas.drawCircle(
+        offset, 
+        cloudSize, 
+        paint..color = cloudColor.withOpacity(0.3 * (0.5 + 0.5 * cos(progress * pi * 2 + i)))
+      );
+    }
+    
+    // Thin border line
+    canvas.drawCircle(
+      center, 
+      radius + 2, 
+      Paint()..color = cloudColor.withOpacity(0.4)..style = PaintingStyle.stroke..strokeWidth = 1.5
+    );
   }
 
   void _drawMistEffect(Canvas canvas, Offset center, double radius) {

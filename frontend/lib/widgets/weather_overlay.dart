@@ -151,14 +151,48 @@ class _WeatherPainter extends CustomPainter {
     );
   });
 
-  static final List<_Particle> _cloudMasses = List.generate(6, (i) {
-    final rand = Random(i * 59);
+  // Layered Cloud System (Higher density and opacity for better visibility)
+  static final List<_Particle> _foregroundClouds = List.generate(5, (i) {
+    final rand = Random(i * 101 + 1);
     return _Particle(
       x: rand.nextDouble(),
+      y: 0.05 + rand.nextDouble() * 0.25,
+      speed: 0.002 + rand.nextDouble() * 0.004,
+      size: 400 + rand.nextDouble() * 500,
+      opacity: 0.25 + rand.nextDouble() * 0.15,
+    );
+  });
+
+  static final List<_Particle> _midgroundClouds = List.generate(8, (i) {
+    final rand = Random(i * 202 + 2);
+    return _Particle(
+      x: rand.nextDouble(),
+      y: 0.1 + rand.nextDouble() * 0.35,
+      speed: 0.005 + rand.nextDouble() * 0.007,
+      size: 250 + rand.nextDouble() * 350,
+      opacity: 0.18 + rand.nextDouble() * 0.1,
+    );
+  });
+
+  static final List<_Particle> _backgroundClouds = List.generate(12, (i) {
+    final rand = Random(i * 303 + 3);
+    return _Particle(
+      x: rand.nextDouble(),
+      y: 0.0 + rand.nextDouble() * 0.5,
+      speed: 0.01 + rand.nextDouble() * 0.012,
+      size: 150 + rand.nextDouble() * 200,
+      opacity: 0.12 + rand.nextDouble() * 0.08,
+    );
+  });
+
+  static final List<_Particle> _birds = List.generate(6, (i) {
+    final rand = Random(i * 404 + 4);
+    return _Particle(
+      x: -0.2 - rand.nextDouble() * 2.0,
       y: 0.1 + rand.nextDouble() * 0.4,
-      speed: 0.005 + rand.nextDouble() * 0.015,
-      size: 150 + rand.nextDouble() * 250,
-      opacity: 0.05 + rand.nextDouble() * 0.1,
+      speed: 0.007 + rand.nextDouble() * 0.01,
+      size: 14 + rand.nextDouble() * 10,
+      opacity: 0.5,
     );
   });
 
@@ -182,9 +216,11 @@ class _WeatherPainter extends CustomPainter {
         break;
       case WeatherCondition.rain:
         _paintStormyRain(canvas, size, heavy: true);
+        _drawBirds(canvas, size);
         break;
       case WeatherCondition.drizzle:
         _paintGentleDrizzle(canvas, size);
+        _drawBirds(canvas, size);
         break;
       case WeatherCondition.heavyRain:
       case WeatherCondition.rainThunder:
@@ -199,15 +235,19 @@ class _WeatherPainter extends CustomPainter {
         break;
       case WeatherCondition.snow:
         _paintArcticSnow(canvas, size);
+        _drawBirds(canvas, size);
         break;
       case WeatherCondition.mist:
         _paintEtherealMist(canvas, size);
+        _drawBirds(canvas, size);
         break;
       case WeatherCondition.haze:
         _paintWarmHaze(canvas, size);
+        _drawBirds(canvas, size);
         break;
       case WeatherCondition.fog:
         _paintDenseFog(canvas, size);
+        _drawBirds(canvas, size);
         break;
       default:
         _paintGalactic(canvas, size);
@@ -219,7 +259,6 @@ class _WeatherPainter extends CustomPainter {
     final cx = size.width * 0.9;
     final cy = size.height * 0.1;
     
-    // Multi-layered golden glow
     for (int i = 1; i <= 3; i++) {
       final sunPaint = Paint()
         ..shader = RadialGradient(
@@ -232,7 +271,6 @@ class _WeatherPainter extends CustomPainter {
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), sunPaint);
     }
 
-    // Dynamic Lens Flare
     final flarePaint = Paint()
       ..shader = RadialGradient(
         colors: [const Color(0xFFFFD600).withOpacity(0.2 * glowProgress), Colors.transparent],
@@ -245,11 +283,10 @@ class _WeatherPainter extends CustomPainter {
       ..strokeWidth = 0.8
       ..strokeCap = StrokeCap.round;
 
-    // Sparse, slow, straight particles
     for (int i = 0; i < 40; i++) {
       final p = _rainParticles[i % _rainParticles.length];
-      final y = (p.y + progress * p.speed * 0.4) % 1.05; // 40% speed
-      final x = p.x; // perfectly straight
+      final y = (p.y + progress * p.speed * 0.4) % 1.05;
+      final x = p.x;
       
       final start = Offset(x * size.width, y * size.height);
       final end = Offset(x * size.width, y * size.height + 6 * p.speed);
@@ -258,14 +295,12 @@ class _WeatherPainter extends CustomPainter {
       canvas.drawLine(start, end, rainPaint);
     }
 
-    // Damp haze overlay
     final hazePaint = Paint()
       ..color = const Color(0xFF606C88).withOpacity(0.08);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), hazePaint);
   }
 
   void _paintGalactic(Canvas canvas, Size size) {
-    // Background stars
     final starPaint = Paint()..color = Colors.white;
     for (final star in _stars) {
       final pulse = (0.5 + 0.5 * sin(progress * 2 * pi + star.x * 100));
@@ -273,7 +308,6 @@ class _WeatherPainter extends CustomPainter {
       canvas.drawCircle(Offset(star.x * size.width, star.y * size.height), star.size, starPaint);
     }
 
-    // Nebula Glows
     final cx = size.width * 0.8;
     final cy = size.height * 0.2;
     final nebulaPaint = Paint()
@@ -286,7 +320,6 @@ class _WeatherPainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: size.width * 0.6));
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), nebulaPaint);
 
-    // Primary Sun/Moon glow
     final sunPaint = Paint()
       ..shader = RadialGradient(
         colors: [
@@ -360,23 +393,77 @@ class _WeatherPainter extends CustomPainter {
   }
 
   void _paintAtmosphericClouds(Canvas canvas, Size size, {bool sunny = false}) {
-    if (sunny) _paintSunny(canvas, size);
+    if (sunny) {
+      // Background "Breaking Light" effect
+      final lightPaint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            const Color(0xFFFFD194).withOpacity(0.2 * glowProgress),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromCircle(center: Offset(size.width * 0.7, size.height * 0.2), radius: size.width * 0.5));
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), lightPaint);
+    }
+
+    // 1. Background Clouds (Fast, Small)
+    _drawCloudLayer(canvas, size, _backgroundClouds, sunny);
     
-    for (int i = 0; i < _cloudMasses.length; i++) {
-      final c = _cloudMasses[i];
-      final x = ((c.x + progress * c.speed) % 1.4 - 0.2) * size.width;
+    // 2. Midground Clouds (Medium, Medium)
+    _drawCloudLayer(canvas, size, _midgroundClouds, sunny);
+
+    // 3. Foreground Clouds (Slow, Large)
+    _drawCloudLayer(canvas, size, _foregroundClouds, sunny);
+
+    // 4. Birds (Rare)
+    _drawBirds(canvas, size);
+  }
+
+  void _drawCloudLayer(Canvas canvas, Size size, List<_Particle> clouds, bool sunny) {
+    for (int i = 0; i < clouds.length; i++) {
+      final c = clouds[i];
+      // Parallax positioning with wrapping
+      final x = ((c.x + progress * c.speed) % 1.8 - 0.4) * size.width;
       final y = c.y * size.height;
       
+      final cloudColor = sunny ? Colors.white : const Color(0xFFCFD8DC);
       final cloudPaint = Paint()
         ..shader = RadialGradient(
           colors: [
-            (sunny ? Colors.white : const Color(0xFFCFD8DC)).withOpacity(c.opacity + 0.02 * glowProgress),
-            (sunny ? Colors.white.withOpacity(0) : const Color(0xFF4C4A6E).withOpacity(0.0)),
+            cloudColor.withOpacity(c.opacity + 0.05 * glowProgress),
+            cloudColor.withOpacity((c.opacity * 0.5) + 0.02 * glowProgress),
+            Colors.transparent,
           ],
+          stops: const [0.0, 0.5, 1.0],
         ).createShader(Rect.fromCircle(center: Offset(x, y), radius: c.size));
       
       canvas.drawCircle(Offset(x, y), c.size, cloudPaint);
-      canvas.drawCircle(Offset(x + c.size * 0.4, y + c.size * 0.1), c.size * 0.8, cloudPaint);
+      // Add a smaller sub-mass for a more organic "puffy" shape
+      canvas.drawCircle(Offset(x + c.size * 0.3, y + c.size * 0.05), c.size * 0.7, cloudPaint);
+    }
+  }
+
+  void _drawBirds(Canvas canvas, Size size) {
+    final birdPaint = Paint()
+      ..color = Colors.black.withOpacity(0.4)
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    for (final b in _birds) {
+      final x = ((b.x + progress * b.speed) % 2.0 - 0.5) * size.width;
+      final y = b.y * size.height;
+      
+      if (x < -50 || x > size.width + 50) continue;
+
+      // More pronounced wing flapping
+      final flap = sin(progress * 35 + b.x * 100) * (b.size * 0.4);
+      final wingSpan = b.size;
+      
+      final path = Path()
+        ..moveTo(x - wingSpan, y - flap)
+        ..quadraticBezierTo(x, y + (flap * 0.2), x + wingSpan, y - flap);
+      
+      canvas.drawPath(path, birdPaint);
     }
   }
 
@@ -403,7 +490,6 @@ class _WeatherPainter extends CustomPainter {
       canvas.drawCircle(Offset(x * size.width, y * size.height), p.size, mistPaint);
     }
     
-    // Horizontal vapor layers
     for (int i = 0; i < 4; i++) {
       final y = (i / 4.0 + progress * 0.02) % 1.0;
       final opacity = 0.08 + 0.04 * glowProgress;
@@ -424,32 +510,14 @@ class _WeatherPainter extends CustomPainter {
       canvas.drawCircle(Offset(x * size.width, y * size.height), p.size, hazePaint);
     }
     
-    // Warm sepia glow
     final sepiaPaint = Paint()
       ..color = const Color(0xFFDECBA4).withOpacity(0.08);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), sepiaPaint);
   }
 
   void _paintDenseFog(Canvas canvas, Size size) {
-    // Re-use cloud masses but with higher opacity and different color
-    for (int i = 0; i < _cloudMasses.length; i++) {
-      final c = _cloudMasses[i];
-      final x = ((c.x + progress * c.speed * 0.5) % 1.4 - 0.2) * size.width;
-      final y = c.y * size.height;
-      
-      final fogPaint = Paint()
-        ..shader = RadialGradient(
-          colors: [
-            const Color(0xFF606C88).withOpacity(c.opacity * 2.0 + 0.05 * glowProgress),
-            const Color(0xFF3F4C6B).withOpacity(0.0),
-          ],
-        ).createShader(Rect.fromCircle(center: Offset(x, y), radius: c.size * 1.5));
-      
-      canvas.drawCircle(Offset(x, y), c.size * 1.5, fogPaint);
-      canvas.drawCircle(Offset(x + c.size * 0.6, y + c.size * 0.2), c.size, fogPaint);
-    }
+    _drawCloudLayer(canvas, size, _foregroundClouds, false);
     
-    // Dense static overlay
     final densePaint = Paint()..color = const Color(0xFF232526).withOpacity(0.1);
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), densePaint);
   }

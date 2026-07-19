@@ -520,7 +520,7 @@ class _PostFeedState extends State<PostFeed> with SingleTickerProviderStateMixin
       color: accent,
       backgroundColor: weather.isLightBackground ? Colors.white : const Color(0xFF111122),
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).size.width < 900 ? 120 : 40),
         itemCount: 1 + (hasComposer ? 1 : 0) + (hasError ? 1 : isEmpty ? 1 : provider.posts.length),
         itemBuilder: (_, i) {
           int index = 0;

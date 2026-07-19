@@ -94,9 +94,9 @@ class WeatherModel {
         ];
       case WeatherCondition.sunnyClouds:
         return [
-          const Color(0xFF4CA1AF), // Daylight Blue
-          const Color(0xFFC4E0E5), // Soft Sky
-          const Color(0xFFFFFFFF), // Bright White
+          const Color(0xFF4B79A1), // Deep Sky
+          const Color(0xFFD1913C), // Sunset Glow Peak
+          const Color(0xFFFFD194), // Warm Horizon
         ];
       case WeatherCondition.rain:
         return [
@@ -125,9 +125,9 @@ class WeatherModel {
         ];
       case WeatherCondition.clouds:
         return [
-          const Color(0xFF1F1C2C), // Dusk
-          const Color(0xFF312E4A), // Steel Cloud
-          const Color(0xFF4C4A6E), // Soft Lavender
+          const Color(0xFFECE9E6), // Soft Alabaster
+          const Color(0xFFFFFFFF), // Pure White Center
+          const Color(0xFFD7DDE8), // Light Steel Grey
         ];
       case WeatherCondition.snow:
         return [
@@ -180,7 +180,7 @@ class WeatherModel {
       case WeatherCondition.rainThunder:
         return const Color(0xFFE040FB); // Magenta
       case WeatherCondition.clouds:
-        return const Color(0xFFCFD8DC); // Cool Silver
+        return const Color(0xFF455A64); // Deeper Slate Grey for better visibility on light background
       case WeatherCondition.snow:
         return const Color(0xFFE1F5FE); // Frost Blue
       case WeatherCondition.mist:
@@ -193,9 +193,10 @@ class WeatherModel {
   }
 
   bool get isLightBackground {
-    // Sunny, SunnyClouds, Snow and Haze are light backgrounds
+    // Sunny, SunnyClouds, Clouds, Snow and Haze are light backgrounds
     return condition == WeatherCondition.sunny ||
            condition == WeatherCondition.sunnyClouds || 
+           condition == WeatherCondition.clouds ||
            condition == WeatherCondition.snow ||
            condition == WeatherCondition.haze;
   }
