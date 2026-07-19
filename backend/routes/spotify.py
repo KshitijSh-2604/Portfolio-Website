@@ -14,10 +14,9 @@ router = APIRouter(prefix="/spotify", tags=["spotify"])
 
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
-# Ensure this matches exactly what is in your Spotify Developer Dashboard
-REDIRECT_URI = "http://127.0.0.1:8000/api/spotify/callback"
-# After processing, redirect user back to the frontend
-FRONTEND_URL = "http://localhost:3000"
+# Use dynamic environment variables for deployment
+REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8000/api/spotify/callback")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 async def get_access_token(supabase: Client):
     try:
