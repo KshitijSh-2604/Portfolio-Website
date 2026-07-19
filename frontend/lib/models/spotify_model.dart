@@ -1,5 +1,6 @@
 class SpotifyTrackModel {
   final bool isPlaying;
+  final bool isLinked;
   final String? trackName;
   final String? artistName;
   final String? albumName;
@@ -10,6 +11,7 @@ class SpotifyTrackModel {
 
   SpotifyTrackModel({
     required this.isPlaying,
+    this.isLinked = false,
     this.trackName,
     this.artistName,
     this.albumName,
@@ -22,6 +24,7 @@ class SpotifyTrackModel {
   factory SpotifyTrackModel.fromJson(Map<String, dynamic> json) {
     return SpotifyTrackModel(
       isPlaying: json['isPlaying'] as bool? ?? false,
+      isLinked: json['isLinked'] as bool? ?? false,
       trackName: json['trackName'] as String?,
       artistName: json['artistName'] as String?,
       albumName: json['albumName'] as String?,

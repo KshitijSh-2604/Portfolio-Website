@@ -438,6 +438,8 @@ class _PostFeedState extends State<PostFeed> with SingleTickerProviderStateMixin
   }
 
   Widget _buildConnectSpotify(AppProvider provider, WeatherModel weather) {
+    final bool isLinked = provider.spotify.isLinked;
+
     return Row(
       children: [
         _albumPlaceholder(weather, size: 54),
@@ -450,8 +452,12 @@ class _PostFeedState extends State<PostFeed> with SingleTickerProviderStateMixin
               style: TextStyle(color: weather.primaryTextColor, fontSize: 13, fontWeight: FontWeight.w700),
             ),
             Text(
-              'Currently Inactive',
-              style: TextStyle(color: weather.tertiaryTextColor, fontSize: 11),
+              isLinked ? 'Account Linked' : 'Currently Inactive',
+              style: TextStyle(
+                color: isLinked ? const Color(0xFF1DB954).withOpacity(0.8) : weather.tertiaryTextColor,
+                fontSize: 11,
+                fontWeight: isLinked ? FontWeight.w600 : FontWeight.w400,
+              ),
             ),
           ],
         ),
@@ -463,17 +469,27 @@ class _PostFeedState extends State<PostFeed> with SingleTickerProviderStateMixin
               await launchUrl(uri, mode: LaunchMode.externalApplication);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1DB954),
-              foregroundColor: Colors.white,
+              backgroundColor: isLinked ? Colors.white.withOpacity(0.08) : const Color(0xFF1DB954),
+              foregroundColor: isLinked ? Colors.white70 : Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               minimumSize: Size.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: isLinked ? BorderSide(color: Colors.white.withOpacity(0.1)) : BorderSide.none,
+              ),
             ),
-            child: const Text('Connect', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+            child: Text(
+              isLinked ? 'Reconnect' : 'Connect',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
           )
         else
-          Icon(Icons.lock_outline_rounded, color: weather.tertiaryTextColor.withOpacity(0.3), size: 14),
+          Icon(
+            isLinked ? Icons.verified_user_rounded : Icons.lock_outline_rounded,
+            color: isLinked ? const Color(0xFF1DB954).withOpacity(0.5) : weather.tertiaryTextColor.withOpacity(0.3),
+            size: 14,
+          ),
       ],
     );
   }

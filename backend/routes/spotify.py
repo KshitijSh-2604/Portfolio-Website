@@ -1,9 +1,10 @@
 import os
 import base64
 import httpx
+from urllib.parse import urlencode
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from database import get_supabase
 from supabase import Client
 from dotenv import load_dotenv
@@ -14,9 +15,32 @@ router = APIRouter(prefix="/spotify", tags=["spotify"])
 
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
-# Use dynamic environment variables for deployment
-REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8000/api/spotify/callback")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+# Use dynamic environment variables for deployment, ensuring no trailing/leading spaces
+REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:8000/api/spotify/callback").strip()
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").strip()
+
+SUCCESS_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Spotify Connected!</title>
+    <style>
+        body { background-color: #0A0A14; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .card { background: rgba(255,255,255,0.05); padding: 40px; border-radius: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        h1 { color: #1DB954; margin-bottom: 10px; }
+        p { color: rgba(255,255,255,0.6); margin-bottom: 30px; }
+        button { background: #1DB954; border: none; color: white; padding: 12px 30px; border-radius: 30px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>✔ Spotify Connected</h1>
+        <p>Your portfolio is now linked to your account.<br>You can close this tab now.</p>
+        <button onclick="window.close()">Close Window</button>
+    </div>
+</body>
+</html>
+"""
 
 async def get_access_token(supabase: Client):
     try:
@@ -79,8 +103,7 @@ async def spotify_auth():
         "scope": scopes,
         "redirect_uri": REDIRECT_URI,
     }
-    query_str = "&".join([f"{k}={v}" for k, v in params.items()])
-    return RedirectResponse(f"https://accounts.spotify.com/authorize?{query_str}")
+    return RedirectResponse(f"https://accounts.spotify.com/authorize?{urlencode(params)}")
 
 @router.get("/callback")
 async def spotify_callback(code: str = None, error: str = None, supabase: Client = Depends(get_supabase)):
@@ -122,18 +145,20 @@ async def spotify_callback(code: str = None, error: str = None, supabase: Client
                 "expires_at": expires_at
             }).execute()
 
-            return RedirectResponse(FRONTEND_URL)
+            return HTMLResponse(content=SUCCESS_HTML)
     except Exception as e:
         return {"error": "internal_crash", "details": str(e)}
 
 @router.get("/now-playing")
 async def now_playing(supabase: Client = Depends(get_supabase)):
     if not CLIENT_ID:
-        return {"isPlaying": False}
+        return {"isPlaying": False, "isLinked": False}
     
     access_token = await get_access_token(supabase)
-    if not access_token:
-        return {"isPlaying": False}
+    is_linked = access_token is not None
+    
+    if not is_linked:
+        return {"isPlaying": False, "isLinked": False}
     
     try:
         async with httpx.AsyncClient() as client:
@@ -141,15 +166,16 @@ async def now_playing(supabase: Client = Depends(get_supabase)):
             response = await client.get("https://api.spotify.com/v1/me/player/currently-playing", headers=headers)
             
             if response.status_code == 204 or response.status_code != 200:
-                return {"isPlaying": False}
+                return {"isPlaying": False, "isLinked": True}
             
             data = response.json()
             if not data.get("item"):
-                return {"isPlaying": data.get("is_playing", False)}
+                return {"isPlaying": data.get("is_playing", False), "isLinked": True}
             
             item = data["item"]
             return {
                 "isPlaying": data["is_playing"],
+                "isLinked": True,
                 "trackName": item["name"],
                 "artistName": ", ".join([a["name"] for a in item["artists"]]),
                 "albumName": item["album"]["name"],
@@ -159,4 +185,4 @@ async def now_playing(supabase: Client = Depends(get_supabase)):
                 "durationMs": item["duration_ms"],
             }
     except Exception:
-        return {"isPlaying": False}
+        return {"isPlaying": False, "isLinked": True}
