@@ -1,38 +1,49 @@
-# Implementation Plan: Cloudy Visibility & Mobile Layout Optimization
+# Implementation Plan: Robust "Live Viewers" via Supabase Realtime
 
-This plan addresses readability issues in the Cloudy weather theme and ensures the mobile navigation bar doesn't obscure content.
+This plan replaces the flaky Backend-based WebSocket with **Supabase Realtime (Presence)**. This is a production-grade solution that works perfectly on serverless platforms like Vercel.
+
+## User Action Required
+
+> [!IMPORTANT]
+> **Supabase Anon Key**: To make this work securely on the frontend, you need your **`SUPABASE_ANON_KEY`**.
+> 1. Go to your [Supabase Dashboard](https://app.supabase.com/project/bmopigwhkmipvyeibizb/settings/api).
+> 2. Copy the **`anon` `public`** key.
+> 3. Provide it to me or add it to your `frontend` project (I will guide you where to put it).
+>
+> **CRITICAL**: Never use the `SERVICE_ROLE_KEY` on the frontend. It bypasses all security and would give visitors full access to your database!
 
 ## Proposed Changes
 
-### 🎨 Cloudy Visibility & Impact
+### 1. Frontend (Flutter)
 
-#### [MODIFY] [weather_model.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/models/weather_model.dart)
-- **Refined Accent**: Change the `accentColor` for `WeatherCondition.clouds` from a light silver to a more visible **Slate Blue-Grey** (`0xFF546E7A`).
-- **Secondary Polish**: Ensure `tertiaryTextColor` has enough contrast on light backgrounds.
+#### [MODIFY] [pubspec.yaml](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/pubspec.yaml)
+- Add `supabase_flutter: ^2.8.1`.
 
-#### [MODIFY] [portfolio_content.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/widgets/portfolio_content.dart)
-- **Cloud Aura**: Darken the cloud color in `_drawCloudEffect` to a medium grey (`0xFF90A4AE`) so it's visible against the Alabaster background.
-- **Darker Hover**: In `_HoverCard`, increase the hover background opacity from `0.08` to `0.15` and deepen the shadow to create a more impactful "lifting" effect.
-- **Meta-data Visibility**:
-    - Update `_buildEducation`, `_buildExperience`, and `_buildProjects` to ensure years, grades, and tech tags use a higher contrast version of the accent color when in light mode.
+#### [MODIFY] [app_provider.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/providers/app_provider.dart)
+- **Initialize Supabase**: Connect to your project using your URL and the **Anon Key**.
+- **Presence Logic**:
+    - Join a channel called `viewers`.
+    - Use `channel.track({'online_at': DateTime.now().toIso8601String()})` to announce the visitor.
+    - Listen to `sync` events: `channel.onPresenceSync((_) { ... })`.
+    - Update `_currentViewers = channel.presenceState().length`.
 
-### 📱 Mobile Layout Fix
+#### [MODIFY] [api_service.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/services/api_service.dart)
+- Remove `currentViewersWsUrl` getter.
 
-#### [MODIFY] [home_screen.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/screens/home_screen.dart)
-- **Bottom Spacing**: Add a `bottomPadding` parameter to both `PortfolioContent` and `PostFeed` components.
+### 2. Backend (FastAPI)
 
-#### [MODIFY] [portfolio_content.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/widgets/portfolio_content.dart)
-- **Mobile Scroll Padding**: Add a bottom padding of `100px` to the `SingleChildScrollView` when running in mobile mode to ensure content is not hidden by the floating TabBar.
-
-#### [MODIFY] [post_feed.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/widgets/post_feed.dart)
-- **Mobile Scroll Padding**: Add a bottom padding of `100px` to the `ListView` when running in mobile mode.
+#### [MODIFY] [analytics.py](file:///C:/Users/Kshitij/Desktop/portfolio_website/backend/routes/analytics.py)
+- **Delete** the `@router.websocket("/current-viewers")` endpoint.
+- **Delete** the `active_connections` set and `broadcast_current_viewers` function.
+- This makes the backend purely stateless and perfect for Vercel.
 
 ---
 
 ## Verification Plan
 
 ### Manual Verification
-1.  **Readability Check**: Cycle to the "Clouds" theme. Verify that education years, grades, and tech tags are now dark and clearly readable.
-2.  **Hover Impact**: Hover over cards in both light and dark themes. Verify the hover state feels more distinct and "deeper".
-3.  **Cloud Aura**: Verify the profile pic's cloud aura is visible and looks like soft grey clouds.
-4.  **Mobile Scroll**: Switch to mobile view. Scroll to the bottom of both "Me" and "Snapshots" tabs. Verify that the last items are fully visible above the floating bar.
+1. **Local Test**: Run the app locally.
+2. **Multiple Tabs**: Open the website in 3 different browser tabs.
+3. **Accuracy**: Verify the "Current Viewers" counter shows `3`.
+4. **Real-time Exit**: Close two tabs. Verify the counter in the remaining tab drops to `1` within a few seconds.
+5. **Vercel Build**: Push to GitHub and verify the counter works on the live site where WebSockets previously failed.

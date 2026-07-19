@@ -27,6 +27,7 @@ dependencies:
   chewie: ^1.8.5
   crop_your_image: ^1.1.0-alpha.5
   uuid: ^4.4.0
+  supabase_flutter: ^2.8.1
 
 dev_dependencies:
   flutter_test:

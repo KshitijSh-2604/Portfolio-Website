@@ -3,8 +3,8 @@ import 'dart:convert';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/post_model.dart';
 import '../models/weather_model.dart';
 import '../models/spotify_model.dart';
@@ -32,7 +32,8 @@ class AppProvider extends ChangeNotifier {
 
   int _totalViews = 0;
   int _currentViewers = 1;
-  WebSocketChannel? _wsChannel;
+  
+  RealtimeChannel? _presenceChannel;
 
   Timer? _weatherTimer;
   Timer? _spotifyTimer;
@@ -52,6 +53,17 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
+    // 1. Initialize Supabase for Presence
+    try {
+      await Supabase.initialize(
+        url: 'https://bmopigwhkmipvyeibizb.supabase.co',
+        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtb3BpZ3doa21pcHZ5ZWliaXpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyODg5NjEsImV4cCI6MjA5OTg2NDk2MX0.h3qeEMNlKUysUDlNA1dv7v-PCZJMOc5QconP4iROmx0',
+      );
+      _setupPresence();
+    } catch (e) {
+      debugPrint('Supabase init error: $e');
+    }
+
     await Future.wait([
       fetchWeather(),
       _fetchSpotify(),
@@ -59,10 +71,26 @@ class AppProvider extends ChangeNotifier {
       _initAnalytics(),
       fetchPortfolio(),
     ]);
-    // Poll weather every 10 minutes
+    
     _weatherTimer = Timer.periodic(const Duration(minutes: 10), (_) => fetchWeather());
-    // Poll Spotify every 3 seconds for a faster real-time feel
     _spotifyTimer = Timer.periodic(const Duration(seconds: 3), (_) => _fetchSpotify());
+  }
+
+  void _setupPresence() {
+    final client = Supabase.instance.client;
+    _presenceChannel = client.channel('viewers');
+    
+    _presenceChannel!.onPresenceSync((_) {
+      _currentViewers = _presenceChannel!.presenceState().length;
+      if (_currentViewers < 1) _currentViewers = 1;
+      notifyListeners();
+    }).subscribe((status, [error]) async {
+      if (status == RealtimeSubscribeStatus.subscribed) {
+        await _presenceChannel!.track({
+          'online_at': DateTime.now().toIso8601String(),
+        });
+      }
+    });
   }
 
   Future<void> fetchPortfolio() async {
@@ -97,28 +125,6 @@ class AppProvider extends ChangeNotifier {
       
       _totalViews = await _api.fetchTotalViews();
       notifyListeners();
-      _connectToViewersWs();
-    } catch (_) {}
-  }
-
-  void _connectToViewersWs() {
-    try {
-      final url = _api.currentViewersWsUrl;
-      _wsChannel = WebSocketChannel.connect(Uri.parse(url));
-      _wsChannel!.stream.listen(
-        (data) {
-          final map = jsonDecode(data as String) as Map<String, dynamic>;
-          _currentViewers = map['count'] as int? ?? 1;
-          notifyListeners();
-        },
-        onError: (_) {
-          // Retry later
-          Future.delayed(const Duration(seconds: 10), _connectToViewersWs);
-        },
-        onDone: () {
-          Future.delayed(const Duration(seconds: 10), _connectToViewersWs);
-        },
-      );
     } catch (_) {}
   }
 

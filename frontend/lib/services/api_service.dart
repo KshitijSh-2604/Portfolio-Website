@@ -122,16 +122,6 @@ class ApiService {
     );
   }
 
-  String get currentViewersWsUrl {
-    if (kIsWeb) {
-      if (Uri.base.host == 'localhost' || Uri.base.host == '127.0.0.1') {
-        return 'ws://localhost:8000/api/analytics/current-viewers';
-      }
-      return 'wss://portfolio-website-azure-ten-62.vercel.app/api/analytics/current-viewers';
-    }
-    return 'ws://localhost:8000/api/analytics/current-viewers';
-  }
-
   Future<void> sendContactMessage({
     required String name,
     required String email,
