@@ -12,15 +12,15 @@ import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart';
 
 class ApiService {
+  static const String _productionBaseUrl = 'https://portfolio-website-azure-ten-62.vercel.app/api';
+  static const String _productionOrigin = 'https://portfolio-website-azure-ten-62.vercel.app';
+
   static String get _baseUrl {
     if (kIsWeb) {
-      // In development, assume FastAPI is at localhost:8000
       if (Uri.base.host == 'localhost' || Uri.base.host == '127.0.0.1') {
         return 'http://localhost:8000/api';
       }
-      final port = Uri.base.port;
-      final portStr = (port != 80 && port != 443) ? ':$port' : '';
-      return '${Uri.base.scheme}://${Uri.base.host}$portStr/api';
+      return _productionBaseUrl;
     }
     return 'http://localhost:8000/api';
   }
@@ -30,9 +30,7 @@ class ApiService {
       if (Uri.base.host == 'localhost' || Uri.base.host == '127.0.0.1') {
         return 'http://localhost:8000';
       }
-      final port = Uri.base.port;
-      final portStr = (port != 80 && port != 443) ? ':$port' : '';
-      return '${Uri.base.scheme}://${Uri.base.host}$portStr';
+      return _productionOrigin;
     }
     return 'http://localhost:8000';
   }
@@ -125,14 +123,13 @@ class ApiService {
   }
 
   String get currentViewersWsUrl {
-    final host = kIsWeb ? Uri.base.host : 'localhost';
-    final port = kIsWeb ? Uri.base.port : 8000;
-    final scheme = Uri.base.scheme == 'https' ? 'wss' : 'ws';
-    // If we're on localhost but talking to a local backend on 8000
-    final actualHost = (host == 'localhost' || host == '127.0.0.1') ? 'localhost' : host;
-    final actualPort = (host == 'localhost' || host == '127.0.0.1') ? 8000 : port;
-    
-    return '$scheme://$actualHost:$actualPort/api/analytics/current-viewers';
+    if (kIsWeb) {
+      if (Uri.base.host == 'localhost' || Uri.base.host == '127.0.0.1') {
+        return 'ws://localhost:8000/api/analytics/current-viewers';
+      }
+      return 'wss://portfolio-website-azure-ten-62.vercel.app/api/analytics/current-viewers';
+    }
+    return 'ws://localhost:8000/api/analytics/current-viewers';
   }
 
   Future<void> sendContactMessage({
