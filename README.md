@@ -1,15 +1,14 @@
-# 🌌 Kshitij Sharma — Interactive Personal Portfolio
+# 🌌 Personal Portfolio
 
-A premium, full-stack personal portfolio and blog built with **Flutter Web**, **FastAPI**, and **Supabase**. This project features real-time weather-reactive themes, Spotify integration, and an immersive media experience.
+A premium, full-stack personal portfolio with blogs, built with **Flutter Web**, **FastAPI**, and **Supabase**. This project features real-time weather-reactive themes, Spotify integration, and an immersive media experience.
 
 ## 🚀 Features
 
--   **Weather-Reactive UI**: The website's theme (colors, particles, and animations) changes in real-time based on the owner's live location.
+-   **Weather-Reactive UI**: The website's theme (colors, particles, and animations) changes in real-time based on my live location.
 -   **Spotify "Now Playing"**: Immersive integration showing real-time playback, live timers, and album art.
 -   **Life Snapshots**: A custom-built blog/gallery feed supporting multiple images and auto-playing videos.
 -   **Advanced Media Suite**: Full-screen viewer with keyboard navigation, zoom support, and mobile gestures.
 -   **Owner Mode**: Secure, password-protected session to edit profile details, projects, and certifications directly from the UI.
--   **Professional Image Editor**: Built-in suite to crop, rotate, and align profile photos before upload.
 -   **Global Reach**: Optimized for both Desktop and Mobile with fluid entry animations and glassmorphism.
 
 ## 🛠️ Tech Stack
