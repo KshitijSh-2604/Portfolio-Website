@@ -1,49 +1,44 @@
-# Implementation Plan: Robust "Live Viewers" via Supabase Realtime
+# Implementation Plan: Pinpoint Weather & Layout Refinements
 
-This plan replaces the flaky Backend-based WebSocket with **Supabase Realtime (Presence)**. This is a production-grade solution that works perfectly on serverless platforms like Vercel.
-
-## User Action Required
-
-> [!IMPORTANT]
-> **Supabase Anon Key**: To make this work securely on the frontend, you need your **`SUPABASE_ANON_KEY`**.
-> 1. Go to your [Supabase Dashboard](https://app.supabase.com/project/bmopigwhkmipvyeibizb/settings/api).
-> 2. Copy the **`anon` `public`** key.
-> 3. Provide it to me or add it to your `frontend` project (I will guide you where to put it).
->
-> **CRITICAL**: Never use the `SERVICE_ROLE_KEY` on the frontend. It bypasses all security and would give visitors full access to your database!
+This plan implements high-accuracy geolocation for weather and fixes small UI inconsistencies in the Cloudy theme and Mobile layout.
 
 ## Proposed Changes
 
-### 1. Frontend (Flutter)
+### 🌍 Pinpoint Accurate Weather
 
-#### [MODIFY] [pubspec.yaml](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/pubspec.yaml)
-- Add `supabase_flutter: ^2.8.1`.
-
-#### [MODIFY] [app_provider.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/providers/app_provider.dart)
-- **Initialize Supabase**: Connect to your project using your URL and the **Anon Key**.
-- **Presence Logic**:
-    - Join a channel called `viewers`.
-    - Use `channel.track({'online_at': DateTime.now().toIso8601String()})` to announce the visitor.
-    - Listen to `sync` events: `channel.onPresenceSync((_) { ... })`.
-    - Update `_currentViewers = channel.presenceState().length`.
+#### [MODIFY] [post_feed.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/widgets/post_feed.dart)
+- **Geolocator Integration**: Use the browser's `Geolocator` (via `geolocator` package) to get the user's exact `latitude` and `longitude` during the login process.
+- **Enhanced API Call**: Pass `lat` and `lon` to the `api.updateOwnerLocation(lat: ..., lon: ...)` method.
 
 #### [MODIFY] [api_service.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/services/api_service.dart)
-- Remove `currentViewersWsUrl` getter.
+- Update `updateOwnerLocation` to accept optional `lat` and `lon` parameters and send them as JSON to the backend.
 
-### 2. Backend (FastAPI)
+#### [MODIFY] [portfolio.py](file:///C:/Users/Kshitij/Desktop/portfolio_website/backend/routes/portfolio.py)
+- **Endpoint Update**: Modify `update_location` to accept a JSON body with `lat` and `lon`.
+- **Reverse Geocoding**: Use OpenWeather's Geocoding API to find the closest city name for those coordinates.
+- **Persistence**: Store `lat`, `lon`, and `city` in the `basics` section.
 
-#### [MODIFY] [analytics.py](file:///C:/Users/Kshitij/Desktop/portfolio_website/backend/routes/analytics.py)
-- **Delete** the `@router.websocket("/current-viewers")` endpoint.
-- **Delete** the `active_connections` set and `broadcast_current_viewers` function.
-- This makes the backend purely stateless and perfect for Vercel.
+#### [MODIFY] [weather.py](file:///C:/Users/Kshitij/Desktop/portfolio_website/backend/routes/weather.py)
+- **Live Weather Update**: Update `get_weather` to query OpenWeather using `lat` and `lon` coordinates for pinpoint accuracy.
+
+### 🎨 Cloudy Visibility Fixes
+
+#### [MODIFY] [portfolio_content.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/widgets/portfolio_content.dart)
+- **Darkened Cloud Aura**: Change the cloud aura color to a darker grey (`0xFF78909C`) so it's clearly visible against the light grey background.
+- **Metadata Contrast**: Ensure Year, CGPA, and Tech tags use **Bold** and **Extra Bold** weights with a high-contrast accent color in the Cloudy theme.
+- **Hover Impact**: Increase hover opacity and shadow depth for a more premium "card lift" feel.
+
+### 📱 Mobile Layout Optimization
+
+#### [MODIFY] [portfolio_content.dart](file:///C:/Users/Kshitij/Desktop/portfolio_website/frontend/lib/widgets/portfolio_content.dart)
+- **Bottom Padding**: Increase bottom padding of the main scroll view to `120px` to ensure no content is ever hidden behind the floating TabBar.
 
 ---
 
 ## Verification Plan
 
 ### Manual Verification
-1. **Local Test**: Run the app locally.
-2. **Multiple Tabs**: Open the website in 3 different browser tabs.
-3. **Accuracy**: Verify the "Current Viewers" counter shows `3`.
-4. **Real-time Exit**: Close two tabs. Verify the counter in the remaining tab drops to `1` within a few seconds.
-5. **Vercel Build**: Push to GitHub and verify the counter works on the live site where WebSockets previously failed.
+1. **Login Flow**: Log in as owner. Verify the browser asks for Location Permission.
+2. **Accuracy**: Confirm the Hero section shows your exact suburb or city based on coordinates, not just a coarse IP-based guess.
+3. **Cloud Visibility**: Cycle to Cloudy theme. Verify the aura around the profile pic is clearly defined and all metadata (years/tags) is easily readable.
+4. **Mobile Scroll**: Switch to mobile view and scroll to the bottom of the feed. Verify the last post is fully visible.

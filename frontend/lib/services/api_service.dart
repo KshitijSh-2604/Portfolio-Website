@@ -160,10 +160,14 @@ class ApiService {
     if (response.statusCode != 200) throw Exception('Failed to update section');
   }
 
-  Future<void> updateOwnerLocation() async {
+  Future<void> updateOwnerLocation({double? lat, double? lon}) async {
     final response = await http.post(
       _uri('/portfolio/update-location'),
       headers: _authHeaders,
+      body: jsonEncode({
+        'lat': lat,
+        'lon': lon,
+      }),
     );
     if (response.statusCode != 200) throw Exception('Failed to update location');
   }

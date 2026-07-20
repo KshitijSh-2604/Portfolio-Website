@@ -59,3 +59,5 @@ backend/__pycache__/
 # Flutter
 frontend/.dart_tool/
 frontend/build/
+
+.artifacts/

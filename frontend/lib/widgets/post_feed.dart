@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import '../providers/app_provider.dart';
 import '../utils/auth_manager.dart';
 import '../services/api_service.dart';
@@ -165,16 +166,36 @@ class _PostFeedState extends State<PostFeed> with SingleTickerProviderStateMixin
       final token = await api.login(ctrl.text.trim());
       AuthManager.setToken(token);
       
-      // Update owner location after login
+      // Update owner location with GPS coordinates after login
       try {
-        await api.updateOwnerLocation();
+        double? lat;
+        double? lon;
+        
+        bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (serviceEnabled) {
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+          }
+          
+          if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+            final position = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+            );
+            lat = position.latitude;
+            lon = position.longitude;
+          }
+        }
+
+        await api.updateOwnerLocation(lat: lat, lon: lon);
+        
         if (ctx.mounted) {
           final provider = Provider.of<AppProvider>(ctx, listen: false);
           await provider.fetchWeather();
           await provider.fetchPortfolio();
         }
       } catch (e) {
-        print("Failed to update location: $e");
+        debugPrint("Failed to update location: $e");
       }
 
       if (ctx.mounted) Navigator.pop(ctx);
