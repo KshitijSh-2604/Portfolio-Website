@@ -184,6 +184,16 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void cycleWeather() {
+    final nextIndex = (_weather.condition.index + 1) % WeatherCondition.values.length;
+    final nextCondition = WeatherCondition.values[nextIndex];
+    _weather = _weather.copyWith(
+      condition: nextCondition,
+      description: 'Mocked: ${nextCondition.name}',
+    );
+    notifyListeners();
+  }
+
   String get spotifyAuthUrl => _api.spotifyAuthUrl;
 
   @override

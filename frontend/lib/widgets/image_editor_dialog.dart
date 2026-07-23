@@ -1,20 +1,28 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:crop_your_image/crop_your_image.dart';
 import 'package:image/image.dart' as img;
+import 'custom_crop.dart';
 
 class ImageEditorDialog extends StatefulWidget {
   final Uint8List image;
   final String title;
+  final bool isCircle;
+  final double? aspectRatio;
 
-  const ImageEditorDialog({super.key, required this.image, this.title = 'Edit Image'});
+  const ImageEditorDialog({
+    super.key,
+    required this.image,
+    this.title = 'Edit Image',
+    this.isCircle = false,
+    this.aspectRatio,
+  });
 
   @override
   State<ImageEditorDialog> createState() => _ImageEditorDialogState();
 }
 
 class _ImageEditorDialogState extends State<ImageEditorDialog> {
-  final _controller = CropController();
+  final _controller = CustomCropController();
   late Uint8List _currentImage;
   bool _isCropping = false;
   int _rotationCount = 0;
@@ -26,7 +34,7 @@ class _ImageEditorDialogState extends State<ImageEditorDialog> {
   }
 
   void _rotateImage() {
-    setState(() => _isCropping = true); // Use as temporary loading state
+    setState(() => _isCropping = true);
     final image = img.decodeImage(_currentImage);
     if (image != null) {
       final rotated = img.copyRotate(image, angle: 90);
@@ -44,10 +52,11 @@ class _ImageEditorDialogState extends State<ImageEditorDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: const Color(0xFF0A0A14),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       child: Container(
-        width: 1000,
-        height: 900,
+        width: double.infinity,
+        height: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 1000),
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
@@ -59,7 +68,7 @@ class _ImageEditorDialogState extends State<ImageEditorDialog> {
                 ),
                 const Spacer(),
                 const Text(
-                  'Zoom & Pan Image • Drag Handles to Resize',
+                  'Pan image to move • Drag handles to resize',
                   style: TextStyle(color: Colors.white24, fontSize: 12),
                 ),
                 const SizedBox(width: 20),
@@ -71,43 +80,61 @@ class _ImageEditorDialogState extends State<ImageEditorDialog> {
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withOpacity(0.05)),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Crop(
-                    key: ValueKey('crop_key_$_rotationCount'),
-                    image: _currentImage,
-                    controller: _controller,
-                    onCropped: (image) {
-                      Navigator.pop(context, image);
-                    },
-                    aspectRatio: 1,
-                    withCircleUi: true,
-                    interactive: true,
-                    fixCropRect: false,
-                    initialSize: 0.5, // Start with 50% size to allow more room for movement/zoom
-                    baseColor: Colors.black,
-                    maskColor: Colors.black.withOpacity(0.8),
-                    radius: 20,
-                    cornerDotBuilder: (size, edgeAlignment) => Container(
-                      width: size * 1.2,
-                      height: size * 1.2,
+              child: Stack(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: CustomCrop(
+                        key: ValueKey('crop_key_$_rotationCount'),
+                        image: _currentImage,
+                        controller: _controller,
+                        isCircle: widget.isCircle,
+                        aspectRatio: widget.aspectRatio,
+                      ),
+                    ),
+                  ),
+                  // Zoom Controls Overlay
+                  Positioned(
+                    bottom: 16,
+                    right: 16,
+                    child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7C4DFF),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4),
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: Colors.white10),
+                        boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 10)],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove_rounded, color: Colors.white70),
+                            onPressed: _controller.zoomOut,
+                            tooltip: 'Zoom Out',
+                          ),
+                          Container(width: 1, height: 20, color: Colors.white10),
+                          IconButton(
+                            icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 18),
+                            onPressed: _controller.reset,
+                            tooltip: 'Reset View',
+                          ),
+                          Container(width: 1, height: 20, color: Colors.white10),
+                          IconButton(
+                            icon: const Icon(Icons.add_rounded, color: Colors.white70),
+                            onPressed: _controller.zoomIn,
+                            tooltip: 'Zoom In',
+                          ),
                         ],
                       ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -123,9 +150,19 @@ class _ImageEditorDialogState extends State<ImageEditorDialog> {
                 ElevatedButton(
                   onPressed: _isCropping
                       ? null
-                      : () {
+                      : () async {
                           setState(() => _isCropping = true);
-                          _controller.crop();
+                          final cropped = await _controller.crop();
+                          if (mounted) {
+                            if (cropped != null) {
+                              Navigator.pop(context, cropped);
+                            } else {
+                              setState(() => _isCropping = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Failed to crop image')),
+                              );
+                            }
+                          }
                         },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF7C4DFF),

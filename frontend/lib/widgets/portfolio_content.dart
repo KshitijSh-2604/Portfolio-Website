@@ -5,14 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/app_provider.dart';
 import '../services/api_service.dart';
 import '../models/weather_model.dart';
 import '../models/portfolio_model.dart';
 import '../utils/auth_manager.dart';
 import 'image_editor_dialog.dart';
+import 'media_viewer.dart';
 
 class PortfolioContent extends StatefulWidget {
   const PortfolioContent({super.key});
@@ -246,34 +249,41 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
           ],
         ),
         const SizedBox(height: 12),
-        Wrap(
-          alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
-          spacing: 16,
-          runSpacing: 8,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
+        GestureDetector(
+          onTap: isOwner ? provider.cycleWeather : null,
+          behavior: HitTestBehavior.opaque,
+          child: Tooltip(
+            message: isOwner ? 'Click to cycle weather themes' : '${weather.location}, India',
+            child: Wrap(
+              alignment: isMobile ? WrapAlignment.center : WrapAlignment.start,
+              spacing: 16,
+              runSpacing: 8,
               children: [
-                Icon(Icons.location_on_outlined, color: accent.withOpacity(0.7), size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  '${weather.location}, India',
-                  style: TextStyle(color: weather.tertiaryTextColor, fontSize: 13),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.location_on_outlined, color: accent.withOpacity(0.7), size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${weather.location}, India',
+                      style: TextStyle(color: weather.tertiaryTextColor, fontSize: 13),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.cloud_outlined, color: accent.withOpacity(0.7), size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${weather.temperature.round()}°C · ${weather.description}',
+                      style: TextStyle(color: weather.tertiaryTextColor, fontSize: 13),
+                    ),
+                  ],
                 ),
               ],
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.cloud_outlined, color: accent.withOpacity(0.7), size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  '${weather.temperature.round()}°C · ${weather.description}',
-                  style: TextStyle(color: weather.tertiaryTextColor, fontSize: 13),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
         const SizedBox(height: 28),
         Wrap(
@@ -391,6 +401,56 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
         ),
       ),
     );
+  }
+
+  Widget _buildEducationLogo(Map<String, dynamic> item, Color accent, {double size = 20}) {
+    final String logoUrl = item['logoUrl']?.toString() ?? '';
+    final String degree = (item['degree']?.toString() ?? '').toLowerCase();
+    final String institute = (item['institute']?.toString() ?? '').toLowerCase();
+
+    if (logoUrl.isNotEmpty) {
+      if (logoUrl.startsWith('http')) {
+        return ClipOval(
+          child: Image.network(
+            logoUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Icon(Icons.school_outlined, color: accent, size: size),
+          ),
+        );
+      } else {
+        return ClipOval(
+          child: Image.asset(
+            'assets/$logoUrl',
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Icon(Icons.school_outlined, color: accent, size: size),
+          ),
+        );
+      }
+    }
+
+    // Hardcoded logic for known institutes and degrees
+    String? assetName;
+    if (institute.contains('class x') || institute.contains('class xii') || 
+        degree.contains('class x') || degree.contains('class xii') || 
+        institute.contains('lfps')) {
+      assetName = 'lfps.png';
+    } else if (institute.contains('adgitm') || degree.contains('b.tech')) {
+      assetName = 'adgitm.png';
+    } else if (institute.contains('nsut') || degree.contains('m.tech')) {
+      assetName = 'nsut.png';
+    }
+
+    if (assetName != null) {
+      return ClipOval(
+        child: Image.asset(
+          'assets/$assetName',
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Icon(Icons.school_outlined, color: accent, size: size),
+        ),
+      );
+    }
+
+    return Icon(Icons.school_outlined, color: accent, size: size);
   }
 
   Widget _buildExperience(Color accent, bool isMobile, WeatherModel weather, PortfolioDataModel portfolio, bool isOwner) {
@@ -527,10 +587,10 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: accent.withOpacity(0.10),
+                                    color: Colors.white.withOpacity(0.05),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(Icons.school_outlined, color: accent, size: 20),
+                                  child: _buildEducationLogo(portfolio.education[i], accent),
                                 ),
                                 const SizedBox(width: 16),
                               ],
@@ -538,10 +598,33 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      portfolio.education[i]['degree']?.toString() ?? '',
-                                      style: TextStyle(color: weather.primaryTextColor, fontSize: 14, fontWeight: FontWeight.w600),
-                                    ),
+                                    if (isMobile) ...[
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(0.05),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: _buildEducationLogo(portfolio.education[i], accent, size: 16),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              portfolio.education[i]['degree']?.toString() ?? '',
+                                              style: TextStyle(color: weather.primaryTextColor, fontSize: 14, fontWeight: FontWeight.w600),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                    ] else
+                                      Text(
+                                        portfolio.education[i]['degree']?.toString() ?? '',
+                                        style: TextStyle(color: weather.primaryTextColor, fontSize: 14, fontWeight: FontWeight.w600),
+                                      ),
                                     const SizedBox(height: 3),
                                     Text(
                                       portfolio.education[i]['institute']?.toString() ?? '',
@@ -551,7 +634,11 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
                                       const SizedBox(height: 4),
                                       Text(
                                         '${portfolio.education[i]['year']!} · ${portfolio.education[i]['grade']!}',
-                                        style: TextStyle(color: accent.withOpacity(0.7), fontSize: 12, fontWeight: FontWeight.w500),
+                                        style: TextStyle(
+                                          color: weather.isLightBackground ? accent : accent.withOpacity(0.7),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                     ],
                                   ],
@@ -639,65 +726,104 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
                 maxCrossAxisExtent: 320,
                 mainAxisSpacing: 14,
                 crossAxisSpacing: 14,
-                childAspectRatio: 1.4,
+                childAspectRatio: 0.85,
               ),
               itemCount: portfolio.projects.length,
               itemBuilder: (_, i) {
                 final p = portfolio.projects[i];
+                final imageUrl = p['imageUrl'] as String?;
+
                 return Stack(
                   children: [
                     _HoverCard(
                       accent: accent,
                       weather: weather,
-                      child: InkWell(
-                        onTap: (p['link'] as String?)?.isNotEmpty == true
-                            ? () => launchUrl(Uri.parse(p['link'] as String))
-                            : null,
-                        borderRadius: BorderRadius.circular(14),
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      p['title']?.toString() ?? '',
-                                      style: TextStyle(color: weather.primaryTextColor, fontSize: 14, fontWeight: FontWeight.w700),
-                                    ),
+                      child: Column(
+                        children: [
+                          if (imageUrl != null && imageUrl.isNotEmpty)
+                            Expanded(
+                              flex: 5,
+                              child: GestureDetector(
+                                onTap: () => showDialog(
+                                  context: context,
+                                  builder: (_) => MediaViewer(urls: [imageUrl]),
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: weather.primaryTextColor.withOpacity(0.05))),
                                   ),
-                                  if ((p['link'] as String?)?.isNotEmpty == true)
-                                    Icon(Icons.open_in_new_rounded, color: accent.withOpacity(0.5), size: 14),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Expanded(
-                                child: Text(
-                                  p['description']?.toString() ?? '',
-                                  textAlign: TextAlign.justify,
-                                  style: TextStyle(color: weather.tertiaryTextColor, fontSize: 12, height: 1.5),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
+                                  child: CachedNetworkImage(
+                                    imageUrl: imageUrl,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) => Center(child: CircularProgressIndicator(color: accent.withOpacity(0.2), strokeWidth: 2)),
+                                    errorWidget: (_, __, ___) => Icon(Icons.broken_image_outlined, color: weather.tertiaryTextColor),
+                                  ),
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                children: (p['tech'] as List<dynamic>? ?? []).map((t) => Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: accent.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: accent.withOpacity(0.2)),
-                                  ),
-                                  child: Text(t?.toString() ?? '', style: TextStyle(color: accent, fontSize: 10, fontWeight: FontWeight.w600)),
-                                )).toList(),
+                            ),
+                          Expanded(
+                            flex: 6,
+                            child: InkWell(
+                              onTap: (p['link'] as String?)?.isNotEmpty == true
+                                  ? () => launchUrl(Uri.parse(p['link'] as String))
+                                  : null,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            p['title']?.toString() ?? '',
+                                            style: TextStyle(color: weather.primaryTextColor, fontSize: 14, fontWeight: FontWeight.w700),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if ((p['link'] as String?)?.isNotEmpty == true)
+                                          Icon(Icons.open_in_new_rounded, color: accent.withOpacity(0.5), size: 14),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Expanded(
+                                      child: Text(
+                                        p['description']?.toString() ?? '',
+                                        textAlign: TextAlign.justify,
+                                        style: TextStyle(color: weather.tertiaryTextColor, fontSize: 12, height: 1.4),
+                                        maxLines: imageUrl != null ? 2 : 4,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: (p['tech'] as List<dynamic>? ?? []).map((t) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: accent.withOpacity(weather.isLightBackground ? 0.2 : 0.1),
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: accent.withOpacity(weather.isLightBackground ? 0.35 : 0.2)),
+                                        ),
+                                        child: Text(
+                                          t?.toString() ?? '', 
+                                          style: TextStyle(
+                                            color: weather.isLightBackground ? accent : accent, 
+                                            fontSize: 9, 
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      )).toList(),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                     if (isOwner)
@@ -760,7 +886,18 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
                         accent: accent,
                         weather: weather,
                         child: InkWell(
-                          onTap: fileUrl.isNotEmpty ? () => launchUrl(Uri.parse(fileUrl)) : null,
+                          onTap: fileUrl.isNotEmpty 
+                            ? () {
+                                if (isPdf) {
+                                  launchUrl(Uri.parse(fileUrl));
+                                } else {
+                                  showDialog(
+                                    context: context,
+                                    builder: (_) => MediaViewer(urls: [fileUrl]),
+                                  );
+                                }
+                              }
+                            : null,
                           borderRadius: BorderRadius.circular(16),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
@@ -988,6 +1125,49 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
     );
   }
 
+  Future<String?> _editAndUploadImage(Uint8List bytes, String title, {bool isCircle = false, double? aspectRatio}) async {
+    try {
+      if (!mounted) return null;
+      final editedBytes = await showDialog<Uint8List>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => ImageEditorDialog(
+          image: bytes, 
+          title: 'Edit $title',
+          isCircle: isCircle,
+          aspectRatio: aspectRatio,
+        ),
+      );
+
+      if (editedBytes != null) {
+        if (!mounted) return null;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Uploading image…')));
+        return await ApiService().uploadImage(editedBytes, 'img_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      }
+    }
+    return null;
+  }
+
+  Future<String?> _pickImageAndEdit(String title, {bool isCircle = false, double? aspectRatio}) async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile == null) return null;
+
+      final bytes = await pickedFile.readAsBytes();
+      return await _editAndUploadImage(bytes, title, isCircle: isCircle, aspectRatio: aspectRatio);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+      }
+    }
+    return null;
+  }
+
   Future<void> _editBasics(PortfolioDataModel portfolio, String field) async {
     final ctrl = TextEditingController(text: portfolio.basics[field]?.toString() ?? '');
     final result = await _showEditDialog(
@@ -1006,32 +1186,12 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
   }
 
   Future<void> _editAvatar(PortfolioDataModel portfolio) async {
-    try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile == null) return;
-
-      final bytes = await pickedFile.readAsBytes();
-      
-      if (!mounted) return;
-      final editedBytes = await showDialog<Uint8List>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => ImageEditorDialog(image: bytes, title: 'Edit Profile Photo'),
-      );
-
-      if (editedBytes != null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Uploading avatar…')));
-        final url = await ApiService().uploadImage(editedBytes, 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        final updatedBasics = Map<String, dynamic>.from(portfolio.basics);
-        updatedBasics['avatarUrl'] = url;
-        await _saveSection('basics', updatedBasics);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Avatar update failed: $e')));
-      }
+    // Removed fixed aspect ratio to allow free-form cropping for profile as well
+    final url = await _pickImageAndEdit('Profile Photo', isCircle: true);
+    if (url != null) {
+      final updatedBasics = Map<String, dynamic>.from(portfolio.basics);
+      updatedBasics['avatarUrl'] = url;
+      await _saveSection('basics', updatedBasics);
     }
   }
 
@@ -1069,7 +1229,7 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
 
   Future<void> _editProject(PortfolioDataModel portfolio, int? index) async {
     final isNew = index == null;
-    final item = !isNew ? portfolio.projects[index] : {'title': '', 'description': '', 'tech': [], 'link': ''};
+    final item = !isNew ? portfolio.projects[index] : {'title': '', 'description': '', 'tech': [], 'link': '', 'imageUrl': ''};
     
     final titleCtrl = TextEditingController(text: item['title']?.toString() ?? '');
     final descCtrl = TextEditingController(text: item['description']?.toString() ?? '');
@@ -1077,17 +1237,128 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
     final techString = (techData is List) ? techData.join(', ') : '';
     final techCtrl = TextEditingController(text: techString);
     final linkCtrl = TextEditingController(text: item['link']?.toString() ?? '');
+    String imageUrl = item['imageUrl']?.toString() ?? '';
+
+    final weather = context.read<AppProvider>().weather;
+    final accent = weather.accentColor;
 
     final result = await _showEditDialog(
       title: isNew ? 'Add Project' : 'Edit Project',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Title')),
-          TextField(controller: descCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Description')),
-          TextField(controller: techCtrl, decoration: const InputDecoration(labelText: 'Technologies (comma separated)')),
-          TextField(controller: linkCtrl, decoration: const InputDecoration(labelText: 'Link')),
-        ],
+      content: StatefulBuilder(
+        builder: (ctx, setDlg) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDialogField(titleCtrl, 'Title', Icons.title_rounded, accent),
+            const SizedBox(height: 12),
+            _buildDialogField(descCtrl, 'Description', Icons.description_outlined, accent, maxLines: 3),
+            const SizedBox(height: 12),
+            _buildDialogField(techCtrl, 'Tech Stack (comma separated)', Icons.code_rounded, accent),
+            const SizedBox(height: 12),
+            _buildDialogField(linkCtrl, 'Link', Icons.link_rounded, accent),
+            const SizedBox(height: 20),
+            const Text('Project Image', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            if (imageUrl.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: imageUrl.startsWith('http') 
+                        ? Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity, height: 120)
+                        : Image.asset('assets/$imageUrl', fit: BoxFit.cover, width: double.infinity, height: 120),
+                    ),
+                    Positioned(
+                      top: 4, right: 4,
+                      child: GestureDetector(
+                        onTap: () => setDlg(() => imageUrl = ''),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                          child: const Icon(Icons.close, size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      // Removed fixed aspect ratio to allow free-form cropping
+                      final url = await _pickImageAndEdit('Project Thumbnail');
+                      if (url != null) setDlg(() => imageUrl = url);
+                    },
+                    icon: const Icon(Icons.photo_library_rounded, size: 18),
+                    label: const Text('Gallery'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final urlCtrl = TextEditingController(text: imageUrl.startsWith('http') ? imageUrl : '');
+                      final confirmed = await _showEditDialog(
+                        title: 'Image URL',
+                        content: TextField(
+                          controller: urlCtrl,
+                          autofocus: true,
+                          decoration: const InputDecoration(hintText: 'Paste image link here...'),
+                        ),
+                      );
+                      
+                      if (confirmed == true && urlCtrl.text.trim().isNotEmpty) {
+                        final pastedUrl = urlCtrl.text.trim();
+                        try {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fetching image from URL...')));
+                          final response = await http.get(Uri.parse(pastedUrl));
+                          if (response.statusCode == 200) {
+                            final bytes = response.bodyBytes;
+                            final editedUrl = await _editAndUploadImage(bytes, 'Project Thumbnail');
+                            if (editedUrl != null) setDlg(() => imageUrl = editedUrl);
+                          } else {
+                            throw Exception('Source server returned status ${response.statusCode}');
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error: Unable to fetch image. This is often due to security (CORS) or broken links. Please download the image and use "Gallery" instead.'),
+                                duration: const Duration(seconds: 6),
+                                action: SnackBarAction(label: 'OK', onPressed: () {}),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.link_rounded, size: 18),
+                    label: const Text('URL'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent.withOpacity(0.15),
+                      foregroundColor: accent,
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
 
@@ -1097,6 +1368,7 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
         'description': descCtrl.text.trim(),
         'tech': techCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
         'link': linkCtrl.text.trim(),
+        'imageUrl': imageUrl,
       };
       final list = List<dynamic>.from(portfolio.projects);
       if (isNew) list.add(newItem); else list[index] = newItem;
@@ -1141,23 +1413,115 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
 
   Future<void> _editEducation(PortfolioDataModel portfolio, int? index) async {
     final isNew = index == null;
-    final item = !isNew ? portfolio.education[index] : {'degree': '', 'institute': '', 'year': '', 'grade': ''};
+    final item = !isNew ? portfolio.education[index] : {'degree': '', 'institute': '', 'year': '', 'grade': '', 'logoUrl': ''};
     
     final degCtrl = TextEditingController(text: item['degree']?.toString() ?? '');
     final instCtrl = TextEditingController(text: item['institute']?.toString() ?? '');
     final yearCtrl = TextEditingController(text: item['year']?.toString() ?? '');
     final gradeCtrl = TextEditingController(text: item['grade']?.toString() ?? '');
+    String logoUrl = item['logoUrl']?.toString() ?? '';
+
+    final weather = context.read<AppProvider>().weather;
+    final accent = weather.accentColor;
 
     final result = await _showEditDialog(
       title: isNew ? 'Add Education' : 'Edit Education',
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(controller: degCtrl, decoration: const InputDecoration(labelText: 'Degree')),
-          TextField(controller: instCtrl, decoration: const InputDecoration(labelText: 'Institute')),
-          TextField(controller: yearCtrl, decoration: const InputDecoration(labelText: 'Year')),
-          TextField(controller: gradeCtrl, decoration: const InputDecoration(labelText: 'Grade')),
-        ],
+      content: StatefulBuilder(
+        builder: (ctx, setDlg) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDialogField(degCtrl, 'Degree', Icons.school_rounded, accent),
+            const SizedBox(height: 12),
+            _buildDialogField(instCtrl, 'Institute', Icons.business_rounded, accent),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _buildDialogField(yearCtrl, 'Year', Icons.calendar_today_rounded, accent)),
+                const SizedBox(width: 12),
+                Expanded(child: _buildDialogField(gradeCtrl, 'Grade', Icons.grade_rounded, accent)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            const Text('Institute Logo', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            if (logoUrl.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                height: 100,
+                width: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: logoUrl.startsWith('http') 
+                        ? Image.network(logoUrl, fit: BoxFit.cover, width: 100, height: 100)
+                        : Image.asset('assets/$logoUrl', fit: BoxFit.cover, width: 100, height: 100),
+                    ),
+                    Positioned(
+                      top: 4, right: 4,
+                      child: GestureDetector(
+                        onTap: () => setDlg(() => logoUrl = ''),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                          child: const Icon(Icons.close, size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      final url = await _pickFile();
+                      if (url != null) setDlg(() => logoUrl = url);
+                    },
+                    icon: const Icon(Icons.photo_library_rounded, size: 18),
+                    label: const Text('Gallery'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      side: BorderSide(color: Colors.white.withOpacity(0.12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final urlCtrl = TextEditingController(text: logoUrl.startsWith('http') ? logoUrl : '');
+                      final confirmed = await _showEditDialog(
+                        title: 'Logo URL',
+                        content: TextField(
+                          controller: urlCtrl,
+                          autofocus: true,
+                          decoration: const InputDecoration(hintText: 'https://...'),
+                        ),
+                      );
+                      if (confirmed == true && urlCtrl.text.trim().isNotEmpty) {
+                        setDlg(() => logoUrl = urlCtrl.text.trim());
+                      }
+                    },
+                    icon: const Icon(Icons.link_rounded, size: 18),
+                    label: const Text('URL'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent.withOpacity(0.15),
+                      foregroundColor: accent,
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
 
@@ -1167,6 +1531,7 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
         'institute': instCtrl.text.trim(),
         'year': yearCtrl.text.trim(),
         'grade': gradeCtrl.text.trim(),
+        'logoUrl': logoUrl,
       };
       final list = List<dynamic>.from(portfolio.education);
       if (isNew) list.add(newItem); else list[index] = newItem;
@@ -1327,12 +1692,18 @@ class _PortfolioContentState extends State<PortfolioContent> with SingleTickerPr
   }
 
   Future<bool?> _showEditDialog({required String title, required Widget content}) {
+    final width = MediaQuery.of(context).size.width;
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
         title: Text(title, style: const TextStyle(color: Colors.white)),
-        content: SingleChildScrollView(child: Theme(data: ThemeData.dark(), child: content)),
+        content: Container(
+          width: min(width * 0.9, 450), // Responsive width with a cap
+          child: SingleChildScrollView(
+            child: Theme(data: ThemeData.dark(), child: content),
+          ),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
